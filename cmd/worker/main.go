@@ -11,9 +11,7 @@ import (
 	"content-automation-pipeline/internal/filter"
 	"content-automation-pipeline/internal/generator"
 	"content-automation-pipeline/internal/publisher"
-	"content-automation-pipeline/internal/queue"
 	"content-automation-pipeline/internal/scheduler"
-	"content-automation-pipeline/internal/store"
 	"content-automation-pipeline/pkg/config"
 	"content-automation-pipeline/pkg/logger"
 	"github.com/robfig/cron/v3"
@@ -32,26 +30,6 @@ func main() {
 	defer logger.Sync()
 
 	logger.Log.Info("Starting Content Automation Pipeline", zap.String("env", os.Getenv("ENV")))
-
-	if cfg.MongoURI != "" && cfg.MongoDBName != "" {
-		if err := store.InitMongoDB(cfg.MongoURI, cfg.MongoDBName); err != nil {
-			logger.Log.Error("Failed to connect to MongoDB", zap.Error(err))
-		} else {
-			logger.Log.Info("Connected to MongoDB")
-		}
-	} else {
-		logger.Log.Info("MongoDB skipped (no URI provided)")
-	}
-
-	if cfg.RedisAddr != "" {
-		if err := queue.InitRedis(cfg.RedisAddr, cfg.RedisPassword); err != nil {
-			logger.Log.Error("Failed to connect to Redis", zap.Error(err))
-		} else {
-			logger.Log.Info("Connected to Redis")
-		}
-	} else {
-		logger.Log.Info("Redis skipped (no ADDR provided)")
-	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

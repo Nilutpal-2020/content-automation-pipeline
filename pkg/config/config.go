@@ -8,10 +8,6 @@ import (
 )
 
 type Config struct {
-	MongoURI           string
-	MongoDBName        string
-	RedisAddr          string
-	RedisPassword      string
 	OpenAIKey          string
 	ClaudeKey          string
 	GeminiKey          string
@@ -25,10 +21,6 @@ func LoadConfig() (*Config, error) {
 	_ = godotenv.Load() // Ignore error if .env doesn't exist
 
 	return &Config{
-		MongoURI:           getEnv("MONGO_URI", ""),
-		MongoDBName:        getEnv("MONGO_DB_NAME", ""),
-		RedisAddr:          getEnv("REDIS_ADDR", ""),
-		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
 		OpenAIKey:          getEnv("OPENAI_API_KEY", ""),
 		ClaudeKey:          getEnv("ANTHROPIC_API_KEY", ""),
 		GeminiKey:          getEnv("GEMINI_API_KEY", ""),

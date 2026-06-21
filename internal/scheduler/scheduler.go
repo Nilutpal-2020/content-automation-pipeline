@@ -8,7 +8,6 @@ import (
 	"content-automation-pipeline/internal/filter"
 	"content-automation-pipeline/internal/generator"
 	"content-automation-pipeline/internal/publisher"
-	"content-automation-pipeline/internal/store"
 	"content-automation-pipeline/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -59,20 +58,6 @@ func (s *Scheduler) RunCycle(ctx context.Context) {
 	// 3. Score & Rank Top 10
 	for _, item := range uniqueItems {
 		item.Score = s.scorer.Score(item)
-
-		// Optional: Save to MongoDB if DB is initialized
-		if store.DB != nil {
-			article := &store.Article{
-				Title:       item.Title,
-				URL:         item.URL,
-				Source:      item.Source,
-				Score:       item.Score,
-				Posted:      false,
-			}
-			if err := store.SaveArticle(ctx, article); err != nil {
-				logger.Log.Error("Failed to save article to MongoDB", zap.Error(err))
-			}
-		}
 	}
 
 	// Sort by Score descending
