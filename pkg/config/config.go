@@ -15,8 +15,8 @@ type Config struct {
 	OpenAIKey          string
 	ClaudeKey          string
 	GeminiKey          string
-	ThreadsUserID      string
-	ThreadsAccessToken string
+	NotionToken        string
+	NotionDatabaseID   string
 	LogLevel           string
 	Port               string
 }
@@ -25,15 +25,15 @@ func LoadConfig() (*Config, error) {
 	_ = godotenv.Load() // Ignore error if .env doesn't exist
 
 	return &Config{
-		MongoURI:           getEnv("MONGO_URI", "mongodb://localhost:27017"),
-		MongoDBName:        getEnv("MONGO_DB_NAME", "content_pipeline"),
-		RedisAddr:          getEnv("REDIS_ADDR", "localhost:6379"),
+		MongoURI:           getEnv("MONGO_URI", ""),
+		MongoDBName:        getEnv("MONGO_DB_NAME", ""),
+		RedisAddr:          getEnv("REDIS_ADDR", ""),
 		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
 		OpenAIKey:          getEnv("OPENAI_API_KEY", ""),
 		ClaudeKey:          getEnv("ANTHROPIC_API_KEY", ""),
 		GeminiKey:          getEnv("GEMINI_API_KEY", ""),
-		ThreadsUserID:      getEnv("THREADS_USER_ID", ""),
-		ThreadsAccessToken: getEnv("THREADS_ACCESS_TOKEN", ""),
+		NotionToken:        getEnv("NOTION_TOKEN", ""),
+		NotionDatabaseID:   getEnv("NOTION_DATABASE_ID", ""),
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
 		Port:               getEnv("PORT", "8080"),
 	}, nil

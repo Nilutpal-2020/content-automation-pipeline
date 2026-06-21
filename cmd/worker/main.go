@@ -16,6 +16,7 @@ import (
 	"content-automation-pipeline/internal/store"
 	"content-automation-pipeline/pkg/config"
 	"content-automation-pipeline/pkg/logger"
+	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 )
 
@@ -32,17 +33,25 @@ func main() {
 
 	logger.Log.Info("Starting Content Automation Pipeline", zap.String("env", os.Getenv("ENV")))
 
-	if err := store.InitMongoDB(cfg.MongoURI, cfg.MongoDBName); err != nil {
-		logger.Log.Fatal("Failed to connect to MongoDB", zap.Error(err))
+	if cfg.MongoURI != "" && cfg.MongoDBName != "" {
+		if err := store.InitMongoDB(cfg.MongoURI, cfg.MongoDBName); err != nil {
+			logger.Log.Error("Failed to connect to MongoDB", zap.Error(err))
+		} else {
+			logger.Log.Info("Connected to MongoDB")
+		}
+	} else {
+		logger.Log.Info("MongoDB skipped (no URI provided)")
 	}
-	logger.Log.Info("Connected to MongoDB")
 
-	if err := queue.InitRedis(cfg.RedisAddr, cfg.RedisPassword); err != nil {
-		logger.Log.Fatal("Failed to connect to Redis", zap.Error(err))
+	if cfg.RedisAddr != "" {
+		if err := queue.InitRedis(cfg.RedisAddr, cfg.RedisPassword); err != nil {
+			logger.Log.Error("Failed to connect to Redis", zap.Error(err))
+		} else {
+			logger.Log.Info("Connected to Redis")
+		}
+	} else {
+		logger.Log.Info("Redis skipped (no ADDR provided)")
 	}
-	logger.Log.Info("Connected to Redis")
-
-	// TODO: Initialize Scheduler/Cron
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -55,7 +64,7 @@ func main() {
 		logger.Log.Fatal("Failed to initialize generator", zap.Error(err))
 	}
 	
-	pub := publisher.NewThreadsPublisher(cfg)
+	pub := publisher.NewNotionPublisher(cfg)
 	scorer := filter.NewScorer()
 	collectors := []collector.Collector{
 		collector.NewHackerNewsCollector(),
@@ -64,26 +73,29 @@ func main() {
 
 	pipe := scheduler.NewScheduler(collectors, scorer, gen, pub)
 
-	// Run pipeline on a ticker
-	// For example, every 10 minutes in prod, but let's use 1 minute for local testing
-	tickerDuration := 1 * time.Minute
-	if os.Getenv("ENV") == "production" {
-		tickerDuration = 10 * time.Minute
+	// Set up cron scheduler
+	c := cron.New(cron.WithLocation(time.Local))
+
+	// Run every day at 8:00 AM in production, or every minute locally
+	cronSpec := "0 8 * * *"
+	if os.Getenv("ENV") != "production" {
+		cronSpec = "* * * * *"
 	}
+
+	_, err = c.AddFunc(cronSpec, func() {
+		cycleCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		pipe.RunCycle(cycleCtx)
+	})
+	if err != nil {
+		logger.Log.Fatal("Failed to setup cron schedule", zap.Error(err))
+	}
+
+	c.Start()
+
+	<-ctx.Done()
+	logger.Log.Info("Worker shutting down...")
 	
-	ticker := time.NewTicker(tickerDuration)
-	defer ticker.Stop()
-
-	// Run once immediately on startup
-	pipe.RunCycle(ctx)
-
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Log.Info("Worker shutting down...")
-			return
-		case <-ticker.C:
-			pipe.RunCycle(ctx)
-		}
-	}
+	cronCtx := c.Stop()
+	<-cronCtx.Done()
 }

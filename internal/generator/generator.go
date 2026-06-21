@@ -9,8 +9,14 @@ import (
 	"go.uber.org/zap"
 )
 
+type GeneratedContent struct {
+	PostText    string `json:"postText"`
+	Hashtags    string `json:"hashtags"`
+	ImagePrompt string `json:"imagePrompt"`
+}
+
 type Generator interface {
-	RewriteArticle(ctx context.Context, title, url, summary string) (string, error)
+	RewriteArticle(ctx context.Context, title, url, summary string) (*GeneratedContent, error)
 }
 
 func NewGenerator(cfg *config.Config) (Generator, error) {

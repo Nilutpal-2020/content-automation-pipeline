@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"sort"
 
 	"content-automation-pipeline/internal/collector"
 	"content-automation-pipeline/internal/filter"
@@ -45,53 +46,75 @@ func (s *Scheduler) RunCycle(ctx context.Context) {
 		logger.Log.Info("Collected items", zap.String("source", c.Name()), zap.Int("count", len(items)))
 	}
 
-	// 2. Score & Filter
-	var topItem *collector.CollectedItem
-	maxScore := -1.0
-
+	// 2. Deduplicate by URL
+	seenURLs := make(map[string]bool)
+	var uniqueItems []*collector.CollectedItem
 	for _, item := range allItems {
-		score := s.scorer.Score(item)
-		item.Score = score
-
-		// Save to MongoDB
-		article := &store.Article{
-			Title:       item.Title,
-			URL:         item.URL,
-			Source:      item.Source,
-			Score:       item.Score,
-			Posted:      false,
-		}
-		if err := store.SaveArticle(ctx, article); err != nil {
-			logger.Log.Error("Failed to save article", zap.Error(err))
-		}
-
-		if score > maxScore {
-			maxScore = score
-			topItem = item
+		if !seenURLs[item.URL] {
+			seenURLs[item.URL] = true
+			uniqueItems = append(uniqueItems, item)
 		}
 	}
 
-	if topItem == nil {
+	// 3. Score & Rank Top 10
+	for _, item := range uniqueItems {
+		item.Score = s.scorer.Score(item)
+
+		// Optional: Save to MongoDB if DB is initialized
+		if store.DB != nil {
+			article := &store.Article{
+				Title:       item.Title,
+				URL:         item.URL,
+				Source:      item.Source,
+				Score:       item.Score,
+				Posted:      false,
+			}
+			if err := store.SaveArticle(ctx, article); err != nil {
+				logger.Log.Error("Failed to save article to MongoDB", zap.Error(err))
+			}
+		}
+	}
+
+	// Sort by Score descending
+	sort.Slice(uniqueItems, func(i, j int) bool {
+		return uniqueItems[i].Score > uniqueItems[j].Score
+	})
+
+	limit := 10
+	if len(uniqueItems) < limit {
+		limit = len(uniqueItems)
+	}
+	topItems := uniqueItems[:limit]
+
+	if len(topItems) == 0 {
 		logger.Log.Info("No items found to process")
 		return
 	}
 
-	logger.Log.Info("Selected top item", zap.String("title", topItem.Title), zap.Float64("score", maxScore))
+	// 4. Generate & 5. Publish to Notion
+	for _, item := range topItems {
+		logger.Log.Info("Processing top item", zap.String("title", item.Title), zap.Float64("score", item.Score))
 
-	// 3. Generate Post
-	postText, err := s.gen.RewriteArticle(ctx, topItem.Title, topItem.URL, "")
-	if err != nil {
-		logger.Log.Error("Failed to generate post", zap.Error(err))
-		return
+		genContent, err := s.gen.RewriteArticle(ctx, item.Title, item.URL, "")
+		if err != nil {
+			logger.Log.Error("Failed to generate post", zap.Error(err))
+			continue
+		}
+
+		req := publisher.PublishRequest{
+			Title:       item.Title,
+			Category:    "Tech News",
+			SourceURL:   item.URL,
+			PostText:    genContent.PostText,
+			Hashtags:    genContent.Hashtags,
+			ImagePrompt: genContent.ImagePrompt,
+		}
+
+		if err := s.pub.Publish(ctx, req); err != nil {
+			logger.Log.Error("Failed to publish post to Notion", zap.Error(err))
+			continue
+		}
 	}
-
-	// 4. Publish
-	if err := s.pub.Publish(ctx, postText); err != nil {
-		logger.Log.Error("Failed to publish post", zap.Error(err))
-		return
-	}
-
-	// TODO: Update MongoDB to mark item as Posted = true
 
 	logger.Log.Info("Pipeline cycle completed successfully")
 }
