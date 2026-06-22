@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	OpenAIKey        string
+	OpenAIModel      string
 	ClaudeKey        string
 	GeminiKey        string
 	NotionToken      string
@@ -26,6 +27,7 @@ func LoadConfig() (*Config, error) {
 
 	cfg := &Config{
 		OpenAIKey:        getEnv("OPENAI_API_KEY", ""),
+		OpenAIModel:      getEnv("OPENAI_MODEL", "gpt-5.4-mini"),
 		ClaudeKey:        getEnv("ANTHROPIC_API_KEY", ""),
 		GeminiKey:        getEnv("GEMINI_API_KEY", ""),
 		NotionToken:      getEnv("NOTION_TOKEN", ""),
