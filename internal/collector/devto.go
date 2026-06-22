@@ -27,6 +27,7 @@ type devToArticle struct {
 	URL         string `json:"url"`
 	Score       int    `json:"positive_reactions_count"`
 	PublishedAt string `json:"published_timestamp"`
+	Description string `json:"description"`
 }
 
 func (d *DevToCollector) Collect(ctx context.Context) ([]*CollectedItem, error) {
@@ -42,6 +43,9 @@ func (d *DevToCollector) Collect(ctx context.Context) ([]*CollectedItem, error) 
 		return nil, fmt.Errorf("failed to fetch dev.to articles: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("fetch dev.to articles: unexpected status %s", resp.Status)
+	}
 
 	var articles []devToArticle
 	if err := json.NewDecoder(resp.Body).Decode(&articles); err != nil {
@@ -56,6 +60,7 @@ func (d *DevToCollector) Collect(ctx context.Context) ([]*CollectedItem, error) 
 			Source:      d.Name(),
 			Score:       float64(a.Score),
 			PublishedAt: a.PublishedAt,
+			Summary:     a.Description,
 		})
 	}
 

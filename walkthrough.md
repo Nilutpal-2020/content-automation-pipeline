@@ -6,7 +6,7 @@ The Go backend for the Social Media Content Automation Pipeline has been success
 
 - **`/internal/collector`**: Fetches articles using **HackerNews** and **Dev.to**.
 - **`/internal/filter`**: The `Scorer` logic weights recency, popularity, and relevance.
-- **`/internal/scheduler`**: Fetches all items, deduplicates them by URL, ranks them by score, and limits the output to the **Top 10 items** daily.
+- **`/internal/scheduler`**: Fetches all items, deduplicates them by URL, ranks them by score within **AI, Backend, DevOps, Minimalist, Productivity, and Tech News**, and queues the top **3 items per category** daily by default.
 - **`/internal/generator`**: Instructs the LLM (OpenAI, Claude, or Gemini) to generate the post and returns structured metadata including the Post Text, Hashtags, and an Image Prompt.
 - **`/internal/publisher`**: Uses the official Notion API to create pages in your database with properly mapped properties.
 
@@ -45,3 +45,4 @@ Ensure your target Notion database has the following properties created:
 - `Image Prompt` (Text)
 - `Status` (Select)
 - `Date` (Date)
+- `Content Key` (Text) — required for durable idempotency across scheduler runs.

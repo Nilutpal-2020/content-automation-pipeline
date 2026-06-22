@@ -24,11 +24,18 @@ func (h *HackerNewsCollector) Name() string {
 
 func (h *HackerNewsCollector) Collect(ctx context.Context) ([]*CollectedItem, error) {
 	// 1. Get top stories
-	resp, err := h.client.Get("https://hacker-news.firebaseio.com/v0/topstories.json")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://hacker-news.firebaseio.com/v0/topstories.json", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create top stories request: %w", err)
+	}
+	resp, err := h.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch top stories: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("fetch top stories: unexpected status %s", resp.Status)
+	}
 
 	var storyIDs []int
 	if err := json.NewDecoder(resp.Body).Decode(&storyIDs); err != nil {
@@ -44,7 +51,7 @@ func (h *HackerNewsCollector) Collect(ctx context.Context) ([]*CollectedItem, er
 	var items []*CollectedItem
 	for i := 0; i < limit; i++ {
 		id := storyIDs[i]
-		item, err := h.fetchStory(id)
+		item, err := h.fetchStory(ctx, id)
 		if err != nil {
 			// Skip errors for individual stories to not halt collection
 			continue
@@ -62,15 +69,23 @@ type hnStory struct {
 	URL   string `json:"url"`
 	Score int    `json:"score"`
 	Time  int64  `json:"time"`
+	Text  string `json:"text"`
 }
 
-func (h *HackerNewsCollector) fetchStory(id int) (*CollectedItem, error) {
+func (h *HackerNewsCollector) fetchStory(ctx context.Context, id int) (*CollectedItem, error) {
 	url := fmt.Sprintf("https://hacker-news.firebaseio.com/v0/item/%d.json", id)
-	resp, err := h.client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("fetch story %d: unexpected status %s", id, resp.Status)
+	}
 
 	var story hnStory
 	if err := json.NewDecoder(resp.Body).Decode(&story); err != nil {
@@ -83,5 +98,6 @@ func (h *HackerNewsCollector) fetchStory(id int) (*CollectedItem, error) {
 		Source:      h.Name(),
 		Score:       float64(story.Score),
 		PublishedAt: time.Unix(story.Time, 0).Format(time.RFC3339),
+		Summary:     story.Text,
 	}, nil
 }

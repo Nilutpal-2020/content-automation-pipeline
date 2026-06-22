@@ -41,21 +41,25 @@ func main() {
 	if err != nil {
 		logger.Log.Fatal("Failed to initialize generator", zap.Error(err))
 	}
-	
+
 	pub := publisher.NewNotionPublisher(cfg)
 	scorer := filter.NewScorer()
 	collectors := []collector.Collector{
 		collector.NewHackerNewsCollector(),
 		collector.NewDevToCollector(),
+		collector.NewRSSCollector("github-blog", "https://github.blog/feed/", 25),
+		collector.NewRSSCollector("aws-whats-new", "https://aws.amazon.com/about-aws/whats-new/recent/feed/", 25),
+		collector.NewRSSCollector("lobsters", "https://lobste.rs/rss", 25),
+		collector.NewRSSCollector("reddit-programming", "https://www.reddit.com/r/programming/.rss", 25),
 	}
 
-	pipe := scheduler.NewScheduler(collectors, scorer, gen, pub)
+	pipe := scheduler.NewScheduler(collectors, scorer, gen, pub, cfg.PostsPerCategory)
 
 	// Set up cron scheduler
 	c := cron.New(cron.WithLocation(time.Local))
 
 	// Run every day at 8:00 AM in production, or every minute locally
-	cronSpec := "0 8 * * *"
+	cronSpec := cfg.CronSchedule
 	if os.Getenv("ENV") != "production" {
 		cronSpec = "* * * * *"
 	}
@@ -73,7 +77,7 @@ func main() {
 
 	<-ctx.Done()
 	logger.Log.Info("Worker shutting down...")
-	
+
 	cronCtx := c.Stop()
 	<-cronCtx.Done()
 }

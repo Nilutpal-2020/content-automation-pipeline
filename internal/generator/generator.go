@@ -16,7 +16,7 @@ type GeneratedContent struct {
 }
 
 type Generator interface {
-	RewriteArticle(ctx context.Context, title, url, summary string) (*GeneratedContent, error)
+	RewriteArticle(ctx context.Context, category, title, url, summary string) (*GeneratedContent, error)
 }
 
 func NewGenerator(cfg *config.Config) (Generator, error) {
@@ -47,6 +47,9 @@ Requirements:
 - Include CTA
 - Include hashtags
 
+Category: %s
 Article Title: %s
 URL: %s
-Summary Context: %s`
+Summary Context: %s
+
+Return JSON only: {"postText":"...", "hashtags":"...", "imagePrompt":"..."}.`

@@ -8,6 +8,7 @@ type CollectedItem struct {
 	Source      string
 	Score       float64
 	PublishedAt string
+	Summary     string
 }
 
 type Collector interface {

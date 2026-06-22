@@ -6,8 +6,9 @@ A background Go worker that automatically fetches trending tech news, scores the
 
 - **Automated Collection**: Fetches daily content from HackerNews and Dev.to.
 - **Intelligent Scoring**: Ranks articles based on recency, popularity, and keyword relevance.
-- **AI Rewrites**: Automatically generates the post body, relevant hashtags, and a suggested image prompt using your choice of LLM (OpenAI, Claude, or Gemini).
-- **Notion Integration**: Directly queues the top 10 generated posts into a Notion database.
+- **Category-balanced queue**: Ranks content within AI, Backend, DevOps, Minimalist, Productivity, and Tech News, then queues the best three items from each category by default.
+- **Social-ready drafts**: Generates a Threads-style hook, concise takeaway, CTA, hashtags, and a topic-specific image direction for every item.
+- **Notion-backed idempotency**: Stores a deterministic content hash in Notion so later runs do not queue the same source twice.
 - **Cron Scheduling**: Built-in `cron` scheduling to run the pipeline automatically every day at 8:00 AM.
 
 ## 🏗 Architecture
@@ -42,6 +43,7 @@ Ensure your Notion database has the following properties:
 - `Image Prompt` (Text)
 - `Status` (Select)
 - `Date` (Date)
+- `Content Key` (Text) — required; this stores the pipeline's idempotency hash.
 
 **Critical:** Make sure to click the `...` menu on your database page, go to "Connections", and explicitly share the database with your Notion Integration!
 
@@ -51,7 +53,7 @@ Start the background worker:
 go run ./cmd/worker
 ```
 
-When `ENV` is not set to `production`, the worker will run every minute for testing. In `production`, it runs daily at 8:00 AM.
+When `ENV` is not set to `production`, the worker will run every minute for testing. In `production`, it runs daily at 8:00 AM. Override the production schedule with `CRON_SCHEDULE` and the per-category quota with `POSTS_PER_CATEGORY`.
 
 ## 📜 Agent Guidelines
 If you are an AI assistant working on this repository, please read the `AGENTS.md` and `CLAUDE.md` files for structural rules and coding guidelines.

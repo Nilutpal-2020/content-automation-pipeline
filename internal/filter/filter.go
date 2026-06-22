@@ -12,6 +12,38 @@ type Scorer struct {
 	keywords []string
 }
 
+const (
+	CategoryAI           = "AI"
+	CategoryBackend      = "Backend"
+	CategoryDevOps       = "DevOps"
+	CategoryMinimalist   = "Minimalist"
+	CategoryProductivity = "Productivity"
+	CategoryTechNews     = "Tech News"
+)
+
+// Categorize assigns every article one queue category. Ordering is intentional:
+// operational topics should not be swallowed by the broader Backend category.
+func Categorize(item *collector.CollectedItem) string {
+	text := strings.ToLower(item.Title + " " + item.Summary)
+	for _, category := range []struct {
+		name     string
+		keywords []string
+	}{
+		{CategoryProductivity, []string{"productivity", "focus", "deep work", "habit", "workflow", "attention", "decision fatigue", "time management", "routine"}},
+		{CategoryMinimalist, []string{"minimalism", "minimalist", "simplicity", "simple", "essential", "less is more", "declutter", "intentional"}},
+		{CategoryAI, []string{"artificial intelligence", "machine learning", "llm", "openai", "anthropic", "gemini", "model", "agent"}},
+		{CategoryDevOps, []string{"kubernetes", "docker", "terraform", "ci/cd", "cloud", "aws", "observability", "devops", "deploy"}},
+		{CategoryBackend, []string{"golang", "go ", "python", "database", "api", "backend", "server", "postgres", "distributed system"}},
+	} {
+		for _, keyword := range category.keywords {
+			if strings.Contains(text, keyword) {
+				return category.name
+			}
+		}
+	}
+	return CategoryTechNews
+}
+
 func NewScorer() *Scorer {
 	return &Scorer{
 		weights: map[string]float64{
